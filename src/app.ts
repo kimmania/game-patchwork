@@ -24,6 +24,7 @@ class App {
   private get els() {
     return {
       menuBtn: document.getElementById('menu-btn')!,
+      legendBtn: document.getElementById('legend-btn')!,
       helpBtn: document.getElementById('help-btn')!,
       undoBtn: document.getElementById('undo-btn')!,
       resetBtn: document.getElementById('reset-btn')!,
@@ -34,6 +35,7 @@ class App {
       verifyMsg: document.getElementById('verify-msg')!,
       levelName: document.getElementById('level-name')!,
       stars: document.getElementById('stars')!,
+      goalBanner: document.getElementById('goal-banner')!,
       board: document.getElementById('board') as HTMLCanvasElement,
     };
   }
@@ -82,10 +84,12 @@ class App {
     if (action === 'connect') this.usedNewEdges++;
     if (action === 'delete') this.usedDeletes++;
     if (action === 'move') this.usedMoves++;
+    this.updateGoalBanner();
   }
 
   private bindControls() {
     this.els.menuBtn.addEventListener('click', () => this.showLevelList());
+    this.els.legendBtn.addEventListener('click', () => this.showLegend());
     this.els.helpBtn.addEventListener('click', () => this.showHelp());
     this.els.undoBtn.addEventListener('click', () => this.undo());
     this.els.resetBtn.addEventListener('click', () => this.resetLevel());
@@ -115,6 +119,93 @@ class App {
     this.els.stars.innerHTML = this.save.stars.map((s: boolean) => `<span class="star ${s ? 'earned' : ''}">★</span>`).join('');
     const hasSource = !!this.level.sourceUrl;
     this.els.sourceBtn.style.display = hasSource ? '' : 'none';
+    this.updateGoalBanner();
+  }
+
+  private updateGoalBanner() {
+    const goal = this.level.goal;
+    const nodes = this.level.nodes;
+    const parts: string[] = [];
+
+    // Goal type description
+    if (goal.type === 'reachability' && goal.source && goal.targets) {
+      const srcLabel = nodes.find((n) => n.id === goal.source)?.label ?? goal.source;
+      const targetLabels = goal.targets.map((t) => nodes.find((n) => n.id === t)?.label ?? t).join(', ');
+      parts.push(`Route from <strong>${srcLabel}</strong> to <strong>${targetLabels}</strong>`);
+    } else if (goal.type === 'noCycle') {
+      parts.push('Eliminate all cycles in the graph');
+    } else if (goal.type === 'minLatency') {
+      parts.push('Minimize latency across the topology');
+    } else if (goal.type === 'surviveFailure') {
+      parts.push('Ensure the system survives a node failure');
+    } else if (goal.type === 'linearize') {
+      parts.push('Linearize the history into a single chain');
+    }
+
+    // Constraints
+    const constraintParts: string[] = [];
+    for (const c of goal.constraints ?? []) {
+      if (c.type === 'maxLatency' && c.value !== undefined) {
+        constraintParts.push(`latency ≤ ${c.value}`);
+      } else if (c.type === 'maxHops' && c.value !== undefined) {
+        constraintParts.push(`≤ ${c.value} hops`);
+      } else if (c.type === 'avoidNode' && c.nodeId) {
+        const label = nodes.find((n) => n.id === c.nodeId)?.label ?? c.nodeId;
+        constraintParts.push(`avoid ${label}`);
+      } else if (c.type === 'noCycle') {
+        constraintParts.push('no cycles');
+      }
+    }
+    if (constraintParts.length > 0) {
+      parts.push(`(${constraintParts.join(', ')})`);
+    }
+
+    // Budget pills
+    const budget = goal.budget;
+    const pills: string[] = [];
+    if (budget) {
+      if (budget.newEdges !== undefined) pills.push(`${budget.newEdges - this.usedNewEdges} edges left`);
+      if (budget.moves !== undefined) pills.push(`${budget.moves - this.usedMoves} moves left`);
+      if (budget.deletes !== undefined) pills.push(`${budget.deletes - this.usedDeletes} deletes left`);
+    }
+
+    const text = parts.join(' ');
+    const pillsHtml = pills.map((p) => `<span class="budget-pill">${p}</span>`).join('');
+    this.els.goalBanner.innerHTML = `<span class="goal-icon">🎯</span><span class="goal-text">${text}</span>${pillsHtml}`;
+  }
+
+  private showLegend() {
+    const types: { type: string; abbr: string; label: string; color: string }[] = [
+      { type: 'source', abbr: 'SRC', label: 'Source — traffic origin', color: '#4ade80' },
+      { type: 'target', abbr: 'DST', label: 'Target — destination', color: '#f87171' },
+      { type: 'router', abbr: 'RTR', label: 'Router — forwards traffic', color: '#60a5fa' },
+      { type: 'service', abbr: 'SVC', label: 'Service — application node', color: '#facc15' },
+      { type: 'database', abbr: 'DB', label: 'Database — data store', color: '#c084fc' },
+      { type: 'cache', abbr: 'CA', label: 'Cache — fast lookup', color: '#2dd4bf' },
+      { type: 'gateway', abbr: 'GW', label: 'Gateway — entry point', color: '#fb923c' },
+      { type: 'commit', abbr: 'CMT', label: 'Commit — git history node', color: '#94a3b8' },
+      { type: 'package', abbr: 'PKG', label: 'Package — dependency', color: '#f472b6' },
+    ];
+
+    const rows = types.map((t) => `
+      <div class="legend-row">
+        <span class="legend-dot" style="background:${t.color}">${t.abbr}</span>
+        <span class="legend-label">${t.label}</span>
+      </div>
+    `).join('');
+
+    const healthRow = `
+      <div class="legend-row">
+        <span class="legend-ring healthy"></span>
+        <span class="legend-label">Green ring — healthy node (health &gt; 50%)</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-ring unhealthy"></span>
+        <span class="legend-label">Red ring — unhealthy node (avoid in paths)</span>
+      </div>
+    `;
+
+    showModal('Node Legend', `<div id="legend-list">${rows}${healthRow}</div>`, [{ label: 'Close', primary: true }]);
   }
 
   private runVerify() {

@@ -16,6 +16,7 @@
   <div id="app">
     <header id="top-bar">
       <button id="menu-btn" class="icon-btn" aria-label="Levels">☰</button>
+      <button id="legend-btn" class="icon-btn" aria-label="Legend">◮</button>
       <div id="title-group">
         <h1 id="game-title">Patchwork</h1>
         <span id="level-name">Tutorial</span>
@@ -24,6 +25,7 @@
       <button id="help-btn" class="icon-btn" aria-label="Help">?</button>
     </header>
     <main id="game-area">
+      <div id="goal-banner" aria-live="polite"></div>
       <canvas id="board" aria-label="Topology board"></canvas>
       <div id="verify-msg" aria-live="polite"></div>
     </main>

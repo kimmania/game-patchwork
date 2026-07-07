@@ -101,6 +101,40 @@ html, body, #app {
   position: relative;
 }
 
+#goal-banner {
+  background: var(--panel-2);
+  border-bottom: 1px solid #2f4a2f;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.4;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#goal-banner .goal-icon {
+  color: var(--warn);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+#goal-banner .goal-text {
+  flex: 1;
+}
+
+#goal-banner .budget-pill {
+  background: var(--bg);
+  border: 1px solid #2f4a2f;
+  border-radius: 8px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 #board {
   flex: 1;
   min-height: 0;
@@ -289,4 +323,52 @@ html, body, #app {
     padding: 0.45rem 0.5rem;
     font-size: 0.85rem;
   }
+  #goal-banner {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.78rem;
+  }
+}
+
+#legend-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.legend-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: bold;
+  color: #0f172a;
+  flex-shrink: 0;
+}
+
+.legend-ring {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid;
+  flex-shrink: 0;
+}
+
+.legend-ring.healthy {
+  border-color: #4ade80;
+}
+
+.legend-ring.unhealthy {
+  border-color: #f87171;
+}
+
+.legend-label {
+  font-size: 0.85rem;
 }

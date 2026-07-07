@@ -113,6 +113,18 @@ export class BoardRenderer {
     this.onModeChange = cb;
   }
 
+  setTopology(level: LevelData, topology: Topology) {
+    this.level = level;
+    this.topology = topology;
+    this.selectedNodeId = null;
+    this.hoverNodeId = null;
+    this.drag = null;
+    this.panState = null;
+    this.mode = { tool: 'drag' };
+    this.canvas.style.cursor = 'default';
+    this.fitToLevel();
+  }
+
   resize() {
     const rect = this.canvas.parentElement?.getBoundingClientRect();
     const width = rect?.width ?? window.innerWidth;

@@ -103,6 +103,8 @@ class App {
   private updateHeader() {
     this.els.levelName.textContent = `${this.level.title} • ${this.level.category}`;
     this.els.stars.innerHTML = this.save.stars.map((s: boolean) => `<span class="star ${s ? 'earned' : ''}">★</span>`).join('');
+    const hasSource = !!this.level.sourceUrl;
+    this.els.sourceBtn.style.display = hasSource ? '' : 'none';
   }
 
   private runVerify() {
@@ -159,9 +161,7 @@ class App {
       this.topology = cloneTopology(previous);
       this.save.topology = cloneTopology(this.topology);
       saveGame(this.save);
-      this.renderer = new BoardRenderer(this.els.board, this.level, this.topology);
-      this.renderer.onTopologyChange((t) => this.handleTopologyChange(t));
-      this.renderer.onNodeSelect((n) => this.handleNodeSelect(n));
+      this.renderer.setTopology(this.level, this.topology);
       this.setTool('drag');
     }
   }
@@ -174,13 +174,10 @@ class App {
     this.usedDeletes = 0;
     this.usedMoves = 0;
     saveGame(this.save);
-    this.renderer = new BoardRenderer(this.els.board, this.level, this.topology);
-    this.renderer.onTopologyChange((t) => this.handleTopologyChange(t));
-    this.renderer.onNodeSelect((n) => this.handleNodeSelect(n));
+    this.renderer.setTopology(this.level, this.topology);
     this.setTool('drag');
     this.updateHeader();
-    this.els.verifyMsg.textContent = '';
-    this.els.verifyMsg.classList.remove('success', 'error');
+    this.clearVerifyMsg();
   }
 
   private loadLevel(id: string) {
@@ -194,11 +191,13 @@ class App {
     this.usedDeletes = 0;
     this.usedMoves = 0;
     saveGame(this.save);
-    this.renderer = new BoardRenderer(this.els.board, this.level, this.topology);
-    this.renderer.onTopologyChange((t) => this.handleTopologyChange(t));
-    this.renderer.onNodeSelect((n) => this.handleNodeSelect(n));
+    this.renderer.setTopology(this.level, this.topology);
     this.setTool('drag');
     this.updateHeader();
+    this.clearVerifyMsg();
+  }
+
+  private clearVerifyMsg() {
     this.els.verifyMsg.textContent = '';
     this.els.verifyMsg.classList.remove('success', 'error');
   }
@@ -249,13 +248,10 @@ class App {
   }
 
   private openSource() {
-    if (this.level.sourceUrl) {
-      this.save.viewedSource = true;
-      saveGame(this.save);
-      this.updateHeader();
-      window.open(this.level.sourceUrl, '_blank', 'noopener,noreferrer');
-    } else {
-      showToast('No source link for this level');
-    }
+    if (!this.level.sourceUrl) return;
+    this.save.viewedSource = true;
+    saveGame(this.save);
+    this.updateHeader();
+    window.open(this.level.sourceUrl, '_blank', 'noopener,noreferrer');
   }
 }

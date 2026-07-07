@@ -25,16 +25,14 @@
     </header>
     <main id="game-area">
       <canvas id="board" aria-label="Topology board"></canvas>
-      <div id="verify-bar">
-        <button id="verify-btn" class="primary">Verify</button>
-        <span id="verify-msg"></span>
-      </div>
+      <div id="verify-msg" aria-live="polite"></div>
     </main>
     <footer id="tool-bar">
       <button id="undo-btn" class="tool-btn">↶ Undo</button>
       <button id="reset-btn" class="tool-btn">↻ Reset</button>
       <button id="connect-btn" class="tool-btn">Connect</button>
       <button id="delete-btn" class="tool-btn">Delete</button>
+      <button id="verify-btn" class="tool-btn primary">Verify</button>
       <button id="source-btn" class="tool-btn">Learn</button>
     </footer>
     <div id="modal-overlay" class="modal-overlay hidden"></div>

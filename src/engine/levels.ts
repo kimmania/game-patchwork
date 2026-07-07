@@ -17,7 +17,7 @@ export const LEVELS: LevelData[] = [
       source: 'client',
       targets: ['server'],
       constraints: [{ type: 'maxHops', value: 2 }],
-      budget: { newEdges: 2, moves: 1 },
+      budget: { newEdges: 2 },
     },
     palette: [{ type: 'edge', count: 2 }],
     sourceUrl: 'https://developer.mozilla.org/en-US/docs/Glossary/Router',

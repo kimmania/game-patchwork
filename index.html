@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1a2e1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Patchwork" />
+  <meta name="description" content="Manipulate real-world topologies to solve routing, integrity, and optimization puzzles." />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <title>Patchwork</title>
+</head>
+<body>
+  <div id="app">
+    <header id="top-bar">
+      <button id="menu-btn" class="icon-btn" aria-label="Levels">☰</button>
+      <div id="title-group">
+        <h1 id="game-title">Patchwork</h1>
+        <span id="level-name">Tutorial</span>
+      </div>
+      <div id="stars" aria-label="Stars"></div>
+      <button id="help-btn" class="icon-btn" aria-label="Help">?</button>
+    </header>
+    <main id="game-area">
+      <canvas id="board" aria-label="Topology board"></canvas>
+      <div id="verify-bar">
+        <button id="verify-btn" class="primary">Verify</button>
+        <span id="verify-msg"></span>
+      </div>
+    </main>
+    <footer id="tool-bar">
+      <button id="undo-btn" class="tool-btn">↶ Undo</button>
+      <button id="reset-btn" class="tool-btn">↻ Reset</button>
+      <button id="connect-btn" class="tool-btn">Connect</button>
+      <button id="delete-btn" class="tool-btn">Delete</button>
+      <button id="source-btn" class="tool-btn">Learn</button>
+    </footer>
+    <div id="modal-overlay" class="modal-overlay hidden"></div>
+  </div>
+  <script type="module" src="src/main.ts"></script>
+</body>
+</html>

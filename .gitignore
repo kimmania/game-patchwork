@@ -1,0 +1,10 @@
+node_modules
+dist
+.DS_Store
+*.log
+__pycache__
+*.pyc
+smoke.cjs
+/test-results/
+/playwright-report/
+/playwright/.cache/

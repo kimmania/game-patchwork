@@ -58,7 +58,6 @@ export function createSave(levelId: string, topology: Topology): SaveData {
     levelId,
     topology: cloneTopology(topology),
     history: [],
-    stars: [false, false, false, false],
     bestMetrics: { latency: Infinity, hops: Infinity, cost: Infinity },
     viewedSource: false,
     seenHelp: false,

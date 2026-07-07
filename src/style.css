@@ -64,20 +64,6 @@ html, body, #app {
   display: block;
 }
 
-#stars {
-  display: flex;
-  gap: 0.25rem;
-  font-size: 1.1rem;
-}
-
-#stars .star {
-  opacity: 0.35;
-}
-
-#stars .star.earned {
-  opacity: 1;
-}
-
 .icon-btn, .tool-btn {
   border: 0;
   border-radius: var(--radius);

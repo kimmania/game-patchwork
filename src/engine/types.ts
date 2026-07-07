@@ -74,7 +74,6 @@ export interface SaveData {
   levelId: string;
   topology: Topology;
   history: Topology[];
-  stars: [boolean, boolean, boolean, boolean];
   bestMetrics: { latency: number; hops: number; cost: number };
   viewedSource: boolean;
   seenHelp: boolean;

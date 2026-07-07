@@ -162,9 +162,21 @@ export class BoardRenderer {
     this.drag = null;
     this.panState = null;
     this.cursorPos = null;
+    this.history = [];
     this.mode = { tool: 'drag' };
     this.canvas.style.cursor = 'default';
     this.fitToLevel();
+  }
+
+  restoreTopology(topology: Topology) {
+    this.topology = topology;
+    this.selectedNodeId = null;
+    this.drag = null;
+    this.panState = null;
+    this.cursorPos = null;
+    this.mode = { tool: 'drag' };
+    this.canvas.style.cursor = 'default';
+    this.render();
   }
 
   resize() {
@@ -217,6 +229,28 @@ export class BoardRenderer {
     this.onChange?.({ nodes: this.topology.nodes.map((n) => ({ ...n })), edges: this.topology.edges.map((e) => ({ ...e })) });
   }
 
+  private history: Topology[] = [];
+
+  private saveHistory() {
+    this.history.push({
+      nodes: this.topology.nodes.map((n) => ({ ...n })),
+      edges: this.topology.edges.map((e) => ({ ...e })),
+    });
+    if (this.history.length > 30) this.history.shift();
+  }
+
+  getHistory(): Topology[] {
+    return this.history;
+  }
+
+  popHistory(): Topology | null {
+    return this.history.pop() ?? null;
+  }
+
+  clearHistory() {
+    this.history = [];
+  }
+
   private bindEvents() {
     const getPos = (e: PointerEvent): { x: number; y: number } => {
       const rect = this.canvas.getBoundingClientRect();
@@ -236,8 +270,9 @@ export class BoardRenderer {
       if (this.mode.tool === 'connect') {
         if (node) {
           if (this.mode.sourceId && this.mode.sourceId !== node.id) {
-            this.addEdge(this.mode.sourceId, node.id);
+            this.saveHistory();
             this.onAction?.('connect');
+            this.addEdge(this.mode.sourceId, node.id);
             this.mode.sourceId = null;
             this.selectedNodeId = null;
           } else if (this.mode.sourceId === node.id) {
@@ -262,19 +297,22 @@ export class BoardRenderer {
 
       if (this.mode.tool === 'delete') {
         if (node) {
-          this.deleteNode(node.id);
+          this.saveHistory();
           this.onAction?.('delete');
+          this.deleteNode(node.id);
         } else {
           const edge = this.findEdgeAt(world.x, world.y);
           if (edge) {
-            this.deleteEdge(edge.id);
+            this.saveHistory();
             this.onAction?.('delete');
+            this.deleteEdge(edge.id);
           }
         }
         return;
       }
 
       if (node) {
+        this.saveHistory();
         this.drag = { nodeId: node.id, offsetX: world.x - node.x, offsetY: world.y - node.y };
         this.selectedNodeId = node.id;
         this.onSelect?.(node);

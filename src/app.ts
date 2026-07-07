@@ -34,7 +34,6 @@ class App {
       verifyBtn: document.getElementById('verify-btn')!,
       verifyMsg: document.getElementById('verify-msg')!,
       levelName: document.getElementById('level-name')!,
-      stars: document.getElementById('stars')!,
       goalBanner: document.getElementById('goal-banner')!,
       board: document.getElementById('board') as HTMLCanvasElement,
     };
@@ -49,7 +48,7 @@ class App {
         this.level = level;
         this.topology = cloneTopology(saved.topology);
       }
-      this.unlocked = new Set(LEVELS.map((l) => l.id)); // restore all if save exists for dev; in production derive from stars
+      this.unlocked = new Set(LEVELS.map((l) => l.id));
       this.completed = new Set(LEVELS.filter((_, i) => i < LEVELS.findIndex((l) => l.id === saved.levelId)).map((l) => l.id));
     }
 
@@ -116,7 +115,6 @@ class App {
 
   private updateHeader() {
     this.els.levelName.textContent = `${this.level.title} • ${this.level.category}`;
-    this.els.stars.innerHTML = this.save.stars.map((s: boolean) => `<span class="star ${s ? 'earned' : ''}">★</span>`).join('');
     const hasSource = !!this.level.sourceUrl;
     this.els.sourceBtn.style.display = hasSource ? '' : 'none';
     this.updateGoalBanner();
@@ -222,8 +220,6 @@ class App {
   }
 
   private handleWin(result: ReturnType<typeof verify>) {
-    const stars = this.computeStars(result);
-    for (let i = 0; i < 4; i++) if (stars[i]) this.save.stars[i] = true;
     this.completed.add(this.level.id);
     const next = nextLevelId(this.level.id);
     if (next) this.unlocked.add(next);
@@ -241,30 +237,21 @@ class App {
     if (next) {
       buttons.push({ label: 'Next Level', primary: true, action: () => this.loadLevel(next) });
     }
-    showModal('Topology Restored', `<p>All constraints satisfied.</p><p>Stars earned: ${this.save.stars.filter(Boolean).length}/4</p>`, buttons);
-  }
-
-  private computeStars(result: ReturnType<typeof verify>): [boolean, boolean, boolean, boolean] {
-    const b = this.level.goal.budget;
-    const fix = result.passed;
-    const optimize = fix && (b?.newEdges === undefined || this.usedNewEdges <= (b.newEdges ?? Infinity)) && (b?.moves === undefined || this.usedMoves <= (b.moves ?? Infinity));
-    const elegant = fix && this.usedDeletes <= 0 && this.usedNewEdges <= (b?.newEdges ?? Infinity);
-    return [fix, optimize, elegant, this.save.viewedSource];
+    const metricsHtml = `<p>Latency ${result.metrics.latency} · ${result.metrics.hops} hops · ${result.metrics.cost} edges.</p>`;
+    showModal('Topology Restored', `<p>All constraints satisfied.</p>${metricsHtml}`, buttons);
   }
 
   private undo() {
-    if (this.save.history.length === 0) {
+    const previous = this.renderer.popHistory();
+    if (!previous) {
       showToast('Nothing to undo');
       return;
     }
-    const previous = this.save.history.pop();
-    if (previous) {
-      this.topology = cloneTopology(previous);
-      this.save.topology = cloneTopology(this.topology);
-      saveGame(this.save);
-      this.renderer.setTopology(this.level, this.topology);
-      this.setTool('drag');
-    }
+    this.topology = cloneTopology(previous);
+    this.save.topology = cloneTopology(this.topology);
+    saveGame(this.save);
+    this.renderer.restoreTopology(this.topology);
+    this.setTool('drag');
   }
 
   private resetLevel() {
@@ -305,15 +292,17 @@ class App {
 
   private showHelp() {
     const hide = showModal('How to Play', `
-      <p>Patchwork puzzles are real-world topologies: networks, schemas, commits, dependencies.</p>
-      <p><strong>Inspect</strong> the nodes and edges. <strong>Manipulate</strong> the graph to satisfy the level goal, then tap <strong>Verify</strong>.</p>
+      <p>Patchwork puzzles are real-world topologies: networks, schemas, commits, and dependencies.</p>
+      <p>The <strong>goal banner</strong> at the top of the board tells you what to achieve — route traffic, break cycles, or repair connections. Read it first!</p>
+      <p>Manipulate the graph to satisfy the goal, then tap <strong>Verify</strong>.</p>
       <ul>
         <li><strong>Drag</strong> a node to reposition it.</li>
-        <li><strong>Connect</strong> mode: tap source, then tap target to add an edge.</li>
+        <li><strong>Connect</strong> mode: tap a source node (it glows), then tap a target to add an edge.</li>
         <li><strong>Delete</strong> mode: tap a node or edge to remove it.</li>
-        <li><strong>Pinch/scroll</strong> to zoom and pan the canvas.</li>
+        <li><strong>Pinch / scroll</strong> to zoom and pan the canvas.</li>
       </ul>
-      <p>Earn four stars: Fix, Optimize, Elegant, and Scholar (view the real-world source).</p>
+      <p>Not sure what a shape means? Tap the <strong>◮ Legend</strong> button in the top bar to see node types and health indicators.</p>
+      <p>Tap <strong>Learn</strong> to open the real-world source behind each puzzle.</p>
     `, [{ label: 'Got it', primary: true, action: () => {
       if (!hasSeenHelp()) {
         markSeenHelp();

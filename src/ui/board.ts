@@ -52,9 +52,11 @@ export class BoardRenderer {
   private panState: PanState | null = null;
   private hoverNodeId: string | null = null;
   private selectedNodeId: string | null = null;
+  private cursorPos: { x: number; y: number } | null = null;
   private onChange?: (topology: Topology) => void;
   private onSelect?: (node: NodeDef | null) => void;
   private onModeChange?: (mode: InteractionMode) => void;
+  private onAction?: (action: 'connect' | 'delete' | 'move') => void;
   private dpr: number;
 
   constructor(canvas: HTMLCanvasElement, level: LevelData, topology: Topology) {
@@ -94,11 +96,46 @@ export class BoardRenderer {
   setMode(mode: InteractionMode) {
     this.mode = mode;
     this.canvas.style.cursor = mode.tool === 'pan' ? 'grab' : 'default';
+    if (mode.tool !== 'connect') {
+      this.mode.sourceId = null;
+      this.selectedNodeId = null;
+    }
+    this.updatePulseLoop();
     this.onModeChange?.(mode);
+    this.render();
+  }
+
+  private pulseRaf: number | null = null;
+
+  private updatePulseLoop() {
+    const needsPulse = this.mode.tool === 'connect' && !!this.mode.sourceId;
+    if (needsPulse && this.pulseRaf === null) {
+      const tick = () => {
+        if (this.mode.tool === 'connect' && this.mode.sourceId) {
+          this.render();
+          this.pulseRaf = requestAnimationFrame(tick);
+        } else {
+          this.pulseRaf = null;
+        }
+      };
+      this.pulseRaf = requestAnimationFrame(tick);
+    } else if (!needsPulse && this.pulseRaf !== null) {
+      cancelAnimationFrame(this.pulseRaf);
+      this.pulseRaf = null;
+    }
   }
 
   getMode(): InteractionMode {
     return this.mode;
+  }
+
+  getNodeScreenPos(nodeId: string): { x: number; y: number } | null {
+    const node = this.topology.nodes.find((n) => n.id === nodeId);
+    if (!node) return null;
+    return {
+      x: node.x * this.scale + this.pan.x,
+      y: node.y * this.scale + this.pan.y,
+    };
   }
 
   onTopologyChange(cb: (topology: Topology) => void) {
@@ -113,6 +150,10 @@ export class BoardRenderer {
     this.onModeChange = cb;
   }
 
+  onActionFired(cb: (action: 'connect' | 'delete' | 'move') => void) {
+    this.onAction = cb;
+  }
+
   setTopology(level: LevelData, topology: Topology) {
     this.level = level;
     this.topology = topology;
@@ -120,6 +161,7 @@ export class BoardRenderer {
     this.hoverNodeId = null;
     this.drag = null;
     this.panState = null;
+    this.cursorPos = null;
     this.mode = { tool: 'drag' };
     this.canvas.style.cursor = 'default';
     this.fitToLevel();
@@ -183,20 +225,36 @@ export class BoardRenderer {
 
     this.canvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      this.canvas.setPointerCapture(e.pointerId);
+      // Don't capture pointer in connect mode — each tap is independent
+      if (this.mode.tool !== 'connect') {
+        this.canvas.setPointerCapture(e.pointerId);
+      }
       const pos = getPos(e);
       const world = this.toWorld(pos.x, pos.y);
       const node = this.findNodeAt(world.x, world.y);
 
       if (this.mode.tool === 'connect') {
         if (node) {
-          if (this.mode.sourceId) {
+          if (this.mode.sourceId && this.mode.sourceId !== node.id) {
             this.addEdge(this.mode.sourceId, node.id);
+            this.onAction?.('connect');
             this.mode.sourceId = null;
+            this.selectedNodeId = null;
+          } else if (this.mode.sourceId === node.id) {
+            // Tapping the same node again cancels selection
+            this.mode.sourceId = null;
+            this.selectedNodeId = null;
           } else {
             this.mode.sourceId = node.id;
             this.selectedNodeId = node.id;
           }
+          this.updatePulseLoop();
+          this.render();
+        } else if (this.mode.sourceId) {
+          // Tapping empty space cancels armed source
+          this.mode.sourceId = null;
+          this.selectedNodeId = null;
+          this.updatePulseLoop();
           this.render();
         }
         return;
@@ -205,9 +263,13 @@ export class BoardRenderer {
       if (this.mode.tool === 'delete') {
         if (node) {
           this.deleteNode(node.id);
+          this.onAction?.('delete');
         } else {
           const edge = this.findEdgeAt(world.x, world.y);
-          if (edge) this.deleteEdge(edge.id);
+          if (edge) {
+            this.deleteEdge(edge.id);
+            this.onAction?.('delete');
+          }
         }
         return;
       }
@@ -240,6 +302,10 @@ export class BoardRenderer {
         this.pan.x = this.panState.panStartX + (pos.x - this.panState.startX);
         this.pan.y = this.panState.panStartY + (pos.y - this.panState.startY);
         this.render();
+      } else if (this.mode.tool === 'connect' && this.mode.sourceId) {
+        // Track cursor for preview line
+        this.cursorPos = world;
+        this.render();
       } else {
         const hover = this.findNodeAt(world.x, world.y);
         if (hover?.id !== this.hoverNodeId) {
@@ -252,6 +318,9 @@ export class BoardRenderer {
 
     const endPointer = (e: PointerEvent) => {
       e.preventDefault();
+      if (this.drag) {
+        this.onAction?.('move');
+      }
       this.drag = null;
       this.panState = null;
       this.canvas.style.cursor = this.mode.tool === 'pan' ? 'grab' : 'default';
@@ -310,9 +379,29 @@ export class BoardRenderer {
     ctx.scale(this.scale, this.scale);
 
     this.drawEdges(ctx);
+    this.drawPreviewLine(ctx);
     this.drawNodes(ctx);
 
     ctx.restore();
+  }
+
+  private drawPreviewLine(ctx: CanvasRenderingContext2D) {
+    if (this.mode.tool !== 'connect' || !this.mode.sourceId || !this.cursorPos) return;
+    const source = this.topology.nodes.find((n) => n.id === this.mode.sourceId);
+    if (!source) return;
+    const r = this.nodeRadius();
+    const angle = Math.atan2(this.cursorPos.y - source.y, this.cursorPos.x - source.x);
+    const x1 = source.x + Math.cos(angle) * r;
+    const y1 = source.y + Math.sin(angle) * r;
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(this.cursorPos.x, this.cursorPos.y);
+    ctx.strokeStyle = 'rgba(74, 222, 128, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   private drawEdges(ctx: CanvasRenderingContext2D) {
@@ -359,15 +448,28 @@ export class BoardRenderer {
 
     for (const n of this.topology.nodes) {
       const isSelected = n.id === this.selectedNodeId;
-      const isSource = this.mode.tool === 'connect' && this.mode.sourceId === n.id;
+      const isArmedSource = this.mode.tool === 'connect' && this.mode.sourceId === n.id;
       const isHover = n.id === this.hoverNodeId;
+
+      // Pulsing glow for armed source node in connect mode
+      if (isArmedSource) {
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 200);
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r + 8 + pulse * 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(74, 222, 128, ${0.15 + pulse * 0.15})`;
+        ctx.fill();
+      }
 
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
       ctx.fillStyle = TYPE_COLORS[n.type] ?? '#94a3b8';
       ctx.fill();
 
-      if (isSelected || isSource) {
+      if (isArmedSource) {
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#4ade80';
+        ctx.stroke();
+      } else if (isSelected) {
         ctx.lineWidth = 4;
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();

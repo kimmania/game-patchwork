@@ -164,13 +164,13 @@ html, body, #app {
 }
 
 .tool-btn.primary {
-  background: var(--accent);
-  color: #052e16;
+  background: #2563eb;
+  color: #ffffff;
   font-weight: 600;
 }
 
-.tool-btn.primary.active {
-  background: var(--accent-dim);
+.tool-btn.primary:active {
+  background: #1d4ed8;
 }
 
 .primary {

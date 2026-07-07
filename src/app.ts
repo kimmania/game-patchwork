@@ -54,6 +54,10 @@ class App {
     this.renderer = new BoardRenderer(this.els.board, this.level, this.topology);
     this.renderer.onTopologyChange((t) => this.handleTopologyChange(t));
     this.renderer.onNodeSelect((n) => this.handleNodeSelect(n));
+    this.renderer.onActionFired((action) => this.handleAction(action));
+
+    // Expose for testing
+    (window as unknown as { __app: unknown }).__app = this;
 
     this.bindControls();
     this.updateHeader();
@@ -72,6 +76,12 @@ class App {
 
   private handleNodeSelect(_node: NodeDef | null) {
     // future: show detail panel
+  }
+
+  private handleAction(action: 'connect' | 'delete' | 'move') {
+    if (action === 'connect') this.usedNewEdges++;
+    if (action === 'delete') this.usedDeletes++;
+    if (action === 'move') this.usedMoves++;
   }
 
   private bindControls() {

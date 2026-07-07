@@ -20,6 +20,8 @@ export const LEVELS: LevelData[] = [
       budget: { newEdges: 2, moves: 1 },
     },
     palette: [{ type: 'edge', count: 2 }],
+    sourceUrl: 'https://developer.mozilla.org/en-US/docs/Glossary/Router',
+    sourceTitle: 'MDN — Router',
   },
   {
     id: 'net-01',
@@ -72,6 +74,8 @@ export const LEVELS: LevelData[] = [
       budget: { newEdges: 1, moves: 1 },
     },
     palette: [{ type: 'edge', count: 1 }],
+    sourceUrl: 'https://en.wikipedia.org/wiki/Foreign_key',
+    sourceTitle: 'Wikipedia — Foreign Key',
   },
   {
     id: 'git-01',
@@ -100,6 +104,8 @@ export const LEVELS: LevelData[] = [
       budget: { newEdges: 1, deletes: 1, moves: 2 },
     },
     palette: [{ type: 'edge', count: 1 }],
+    sourceUrl: 'https://git-scm.com/docs/git-rebase',
+    sourceTitle: 'Git — git-rebase',
   },
   {
     id: 'dep-01',
@@ -122,6 +128,8 @@ export const LEVELS: LevelData[] = [
       budget: { deletes: 1, moves: 1 },
     },
     palette: [],
+    sourceUrl: 'https://docs.npmjs.com/cli/v10/configuring-npm/folders',
+    sourceTitle: 'npm — Folders',
   },
   {
     id: 'svc-01',
@@ -146,6 +154,8 @@ export const LEVELS: LevelData[] = [
       budget: { newEdges: 2, moves: 2 },
     },
     palette: [{ type: 'edge', count: 2 }],
+    sourceUrl: 'https://microservices.io/patterns/reliability/circuitbreaker.html',
+    sourceTitle: 'Microservices.io — Circuit Breaker',
   },
 ];
 

@@ -51,6 +51,7 @@ export class BoardRenderer {
   private drag: DragState | null = null;
   private panState: PanState | null = null;
   private hoverNodeId: string | null = null;
+  private hoverEdgeId: string | null = null;
   private selectedNodeId: string | null = null;
   private cursorPos: { x: number; y: number } | null = null;
   private onChange?: (topology: Topology) => void;
@@ -159,6 +160,7 @@ export class BoardRenderer {
     this.topology = topology;
     this.selectedNodeId = null;
     this.hoverNodeId = null;
+    this.hoverEdgeId = null;
     this.drag = null;
     this.panState = null;
     this.cursorPos = null;
@@ -171,6 +173,8 @@ export class BoardRenderer {
   restoreTopology(topology: Topology) {
     this.topology = topology;
     this.selectedNodeId = null;
+    this.hoverNodeId = null;
+    this.hoverEdgeId = null;
     this.drag = null;
     this.panState = null;
     this.cursorPos = null;
@@ -211,12 +215,13 @@ export class BoardRenderer {
 
   private findEdgeAt(x: number, y: number): EdgeDef | null {
     const r = this.nodeRadius();
+    const threshold = Math.max(18, r * 0.6);
     for (const e of this.topology.edges) {
       const from = this.topology.nodes.find((n) => n.id === e.from);
       const to = this.topology.nodes.find((n) => n.id === e.to);
       if (!from || !to) continue;
       const d = distToSegment(x, y, from.x, from.y, to.x, to.y, r);
-      if (d < 12) return e;
+      if (d < threshold) return e;
     }
     return null;
   }
@@ -346,9 +351,16 @@ export class BoardRenderer {
         this.render();
       } else {
         const hover = this.findNodeAt(world.x, world.y);
-        if (hover?.id !== this.hoverNodeId) {
+        const hoverEdge = (!hover && this.mode.tool === 'delete') ? this.findEdgeAt(world.x, world.y) : null;
+        const hoverChanged = hover?.id !== this.hoverNodeId || (hoverEdge?.id ?? null) !== this.hoverEdgeId;
+        if (hoverChanged) {
           this.hoverNodeId = hover?.id ?? null;
-          this.canvas.style.cursor = this.mode.tool === 'drag' && hover ? 'move' : this.mode.tool === 'pan' ? 'grab' : 'default';
+          this.hoverEdgeId = hoverEdge?.id ?? null;
+          if (this.mode.tool === 'delete') {
+            this.canvas.style.cursor = (hover || hoverEdge) ? 'pointer' : 'default';
+          } else {
+            this.canvas.style.cursor = this.mode.tool === 'drag' && hover ? 'move' : this.mode.tool === 'pan' ? 'grab' : 'default';
+          }
           this.render();
         }
       }
@@ -454,11 +466,25 @@ export class BoardRenderer {
       const x2 = to.x - Math.cos(angle) * r;
       const y2 = to.y - Math.sin(angle) * r;
 
+      const isHovered = this.mode.tool === 'delete' && this.hoverEdgeId === e.id;
+      const edgeColor = isHovered ? '#f87171' : '#94a3b8';
+      const edgeWidth = isHovered ? 5 : 3;
+
+      // Glow on hovered edge
+      if (isHovered) {
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = 'rgba(248, 113, 113, 0.25)';
+        ctx.lineWidth = 12;
+        ctx.stroke();
+      }
+
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = edgeColor;
+      ctx.lineWidth = edgeWidth;
       ctx.stroke();
 
       const headLen = 10;
@@ -467,7 +493,7 @@ export class BoardRenderer {
       ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
       ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
       ctx.closePath();
-      ctx.fillStyle = '#94a3b8';
+      ctx.fillStyle = edgeColor;
       ctx.fill();
 
       // Weight pill at midpoint

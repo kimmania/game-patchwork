@@ -2,7 +2,7 @@ import './style.css';
 import { firstLevelId, getLevel, LEVELS, nextLevelId } from './engine/levels.ts';
 import { cloneTopology, createSave, hasSeenHelp, loadGame, markSeenHelp, saveGame } from './engine/storage.ts';
 import type { NodeDef, SaveData, Topology } from './engine/types.ts';
-import { verify } from './engine/verify.ts';
+import { verify, type VerifyContext } from './engine/verify.ts';
 import { BoardRenderer, type Tool } from './ui/board.ts';
 import { hideModal, showModal, showToast } from './ui/modal.ts';
 
@@ -207,7 +207,12 @@ class App {
   }
 
   private runVerify() {
-    const result = verify(this.topology, this.level.goal);
+    const ctx: VerifyContext = {
+      usedNewEdges: this.usedNewEdges,
+      usedDeletes: this.usedDeletes,
+      usedMoves: this.usedMoves,
+    };
+    const result = verify(this.topology, this.level.goal, ctx);
     this.els.verifyMsg.classList.remove('success', 'error');
     if (result.passed) {
       this.els.verifyMsg.classList.add('success');
@@ -323,7 +328,7 @@ class App {
         <span>${done ? '✓' : locked ? '🔒' : ''}</span>
       </div>`;
     }).join('');
-    showModal('Levels', `<div id="level-list">${rows}</div>`, []);
+    showModal('Levels', `<div id="level-list">${rows}</div>`, [{ label: 'Close' }]);
     document.querySelectorAll('#level-list .level-row').forEach((row) => {
       row.addEventListener('click', () => {
         const id = row.getAttribute('data-id')!;

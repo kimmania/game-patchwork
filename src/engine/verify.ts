@@ -1,5 +1,11 @@
 import type { EdgeDef, Goal, NodeDef, Topology, VerificationResult } from './types.ts';
 
+export interface VerifyContext {
+  usedNewEdges?: number;
+  usedDeletes?: number;
+  usedMoves?: number;
+}
+
 function getNode(nodes: NodeDef[], id: string): NodeDef | undefined {
   return nodes.find((n) => n.id === id);
 }
@@ -73,7 +79,7 @@ function hasCycle(nodes: NodeDef[], edges: EdgeDef[]): boolean {
   return false;
 }
 
-export function verify(topology: Topology, goal: Goal): VerificationResult {
+export function verify(topology: Topology, goal: Goal, ctx?: VerifyContext): VerificationResult {
   const { nodes, edges } = topology;
   const violations: string[] = [];
   let maxLatency = 0;
@@ -82,7 +88,8 @@ export function verify(topology: Topology, goal: Goal): VerificationResult {
 
   const adj = buildAdjacency(nodes, edges);
 
-  if (goal.type === 'reachability' && goal.source) {
+  // For noCycle goals with source/targets, also check reachability
+  if ((goal.type === 'noCycle' || goal.type === 'reachability') && goal.source) {
     const dist = dijkstra(adj, goal.source);
     const targets = goal.targets ?? [];
     for (const target of targets) {
@@ -115,6 +122,19 @@ export function verify(topology: Topology, goal: Goal): VerificationResult {
 
   if (goal.type === 'noCycle' || goal.constraints?.some((c) => c.type === 'noCycle')) {
     if (hasCycle(nodes, edges)) violations.push('Cycle detected');
+  }
+
+  // Enforce budget
+  if (goal.budget && ctx) {
+    if (goal.budget.newEdges !== undefined && (ctx.usedNewEdges ?? 0) > goal.budget.newEdges) {
+      violations.push(`Used ${ctx.usedNewEdges} new edges; budget ${goal.budget.newEdges}`);
+    }
+    if (goal.budget.deletes !== undefined && (ctx.usedDeletes ?? 0) > goal.budget.deletes) {
+      violations.push(`Used ${ctx.usedDeletes} deletes; budget ${goal.budget.deletes}`);
+    }
+    if (goal.budget.moves !== undefined && (ctx.usedMoves ?? 0) > goal.budget.moves) {
+      violations.push(`Used ${ctx.usedMoves} moves; budget ${goal.budget.moves}`);
+    }
   }
 
   return {

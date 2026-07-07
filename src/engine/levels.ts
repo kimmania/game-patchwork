@@ -124,7 +124,9 @@ export const LEVELS: LevelData[] = [
     ],
     goal: {
       type: 'noCycle',
-      constraints: [{ type: 'maxHops', value: 3 }],
+      source: 'ui',
+      targets: ['core', 'utils'],
+      constraints: [{ type: 'noCycle' }],
       budget: { deletes: 1, moves: 1 },
     },
     palette: [],

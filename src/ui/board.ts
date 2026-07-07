@@ -470,10 +470,20 @@ export class BoardRenderer {
       ctx.fillStyle = '#94a3b8';
       ctx.fill();
 
+      // Weight pill at midpoint
       const midX = (x1 + x2) / 2;
       const midY = (y1 + y2) / 2;
+      const weightFont = `${Math.max(10, r * 0.4)}px system-ui, sans-serif`;
+      ctx.font = weightFont;
+      const wMetrics = ctx.measureText(String(e.weight));
+      const wPillW = wMetrics.width + 10;
+      const wPillH = Math.max(14, r * 0.5);
+      ctx.beginPath();
+      ctx.roundRect(midX - wPillW / 2, midY - 8 - wPillH / 2, wPillW, wPillH, wPillH / 2);
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.9)';
+      ctx.fill();
+
       ctx.fillStyle = '#e2e8f0';
-      ctx.font = `${Math.max(10, r * 0.45)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(e.weight), midX, midY - 8);
@@ -534,9 +544,25 @@ export class BoardRenderer {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(TYPE_LABELS[n.type] ?? '?', n.x, n.y - fontSize * 0.25);
-      ctx.font = `${fontSize * 0.75}px system-ui, sans-serif`;
-      ctx.fillStyle = '#1f2937';
-      ctx.fillText(n.label, n.x, n.y + fontSize * 0.8);
+
+      // Label pill below the node
+      const labelFont = `${fontSize * 0.75}px system-ui, sans-serif`;
+      ctx.font = labelFont;
+      const labelMetrics = ctx.measureText(n.label);
+      const pillW = labelMetrics.width + 12;
+      const pillH = fontSize * 0.95;
+      const pillX = n.x - pillW / 2;
+      const pillY = n.y + r + 4;
+      const pillR = pillH / 2;
+
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, pillH, pillR);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.fill();
+
+      ctx.fillStyle = '#1e293b';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(n.label, n.x, pillY + pillH / 2);
     }
   }
 }

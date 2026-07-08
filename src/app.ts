@@ -103,7 +103,9 @@ class App {
   }
 
   private setTool(tool: Tool) {
-    if (tool === 'connect' && this.renderer.getMode().tool === 'connect') {
+    const current = this.renderer.getMode().tool;
+    if (tool === current) {
+      // Toggle off — return to drag mode
       this.renderer.setMode({ tool: 'drag' });
     } else {
       this.renderer.setMode({ tool });

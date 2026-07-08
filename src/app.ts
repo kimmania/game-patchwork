@@ -236,14 +236,29 @@ class App {
     saveGame(this.save);
     this.updateHeader();
 
+    // Check if user stayed within budget
+    const b = this.level.goal.budget;
+    const overBudget: string[] = [];
+    if (b) {
+      if (b.newEdges !== undefined && this.usedNewEdges > b.newEdges) overBudget.push(`${this.usedNewEdges} edges (budget ${b.newEdges})`);
+      if (b.deletes !== undefined && this.usedDeletes > b.deletes) overBudget.push(`${this.usedDeletes} deletes (budget ${b.deletes})`);
+      if (b.moves !== undefined && this.usedMoves > b.moves) overBudget.push(`${this.usedMoves} moves (budget ${b.moves})`);
+    }
+    const withinBudget = overBudget.length === 0;
+
     const buttons: { label: string; primary?: boolean; action?: () => void }[] = [
-      { label: 'Replay', action: () => this.resetLevel() },
+      { label: 'Try Again', action: () => this.resetLevel() },
     ];
     if (next) {
       buttons.push({ label: 'Next Level', primary: true, action: () => this.loadLevel(next) });
     }
+
     const metricsHtml = `<p>Latency ${result.metrics.latency} · ${result.metrics.hops} hops · ${result.metrics.cost} edges.</p>`;
-    showModal('Topology Restored', `<p>All constraints satisfied.</p>${metricsHtml}`, buttons);
+    const budgetHtml = withinBudget
+      ? '<p>All constraints satisfied within budget.</p>'
+      : `<p>Solved, but could be done in fewer moves: ${overBudget.join(', ')}.</p>`;
+    const title = withinBudget ? 'Topology Restored' : 'Solved — Over Budget';
+    showModal(title, `${budgetHtml}${metricsHtml}`, buttons);
   }
 
   private undo() {

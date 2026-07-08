@@ -124,18 +124,7 @@ export function verify(topology: Topology, goal: Goal, ctx?: VerifyContext): Ver
     if (hasCycle(nodes, edges)) violations.push('Cycle detected');
   }
 
-  // Enforce budget
-  if (goal.budget && ctx) {
-    if (goal.budget.newEdges !== undefined && (ctx.usedNewEdges ?? 0) > goal.budget.newEdges) {
-      violations.push(`Used ${ctx.usedNewEdges} new edges; budget ${goal.budget.newEdges}`);
-    }
-    if (goal.budget.deletes !== undefined && (ctx.usedDeletes ?? 0) > goal.budget.deletes) {
-      violations.push(`Used ${ctx.usedDeletes} deletes; budget ${goal.budget.deletes}`);
-    }
-    if (goal.budget.moves !== undefined && (ctx.usedMoves ?? 0) > goal.budget.moves) {
-      violations.push(`Used ${ctx.usedMoves} moves; budget ${goal.budget.moves}`);
-    }
-  }
+  // Budget is not enforced here — checked separately in app for soft feedback
 
   return {
     passed: violations.length === 0,

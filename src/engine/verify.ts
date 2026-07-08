@@ -4,6 +4,7 @@ export interface VerifyContext {
   usedNewEdges?: number;
   usedDeletes?: number;
   usedMoves?: number;
+  usedRewires?: number;
 }
 
 function getNode(nodes: NodeDef[], id: string): NodeDef | undefined {
@@ -15,8 +16,15 @@ function buildAdjacency(nodes: NodeDef[], edges: EdgeDef[]): Map<string, { to: s
   for (const n of nodes) adj.set(n.id, []);
   for (const e of edges) {
     if (e.from === e.to) continue;
-    adj.get(e.from)?.push({ to: e.to, weight: e.weight });
-    if (e.bidirectional) adj.get(e.to)?.push({ to: e.from, weight: e.weight });
+    // Retry nodes halve the effective latency of their outgoing edges
+    const fromNode = nodes.find((n) => n.id === e.from);
+    const weight = fromNode?.type === 'retry' ? Math.ceil(e.weight / 2) : e.weight;
+    adj.get(e.from)?.push({ to: e.to, weight });
+    if (e.bidirectional) {
+      const toNode = nodes.find((n) => n.id === e.to);
+      const revWeight = toNode?.type === 'retry' ? Math.ceil(e.weight / 2) : e.weight;
+      adj.get(e.to)?.push({ to: e.from, weight: revWeight });
+    }
   }
   return adj;
 }
@@ -118,10 +126,67 @@ export function verify(topology: Topology, goal: Goal, ctx?: VerifyContext): Ver
       const used = edges.some((e) => e.from === c.nodeId || e.to === c.nodeId || (e.bidirectional && (e.from === c.nodeId || e.to === c.nodeId)));
       if (used) violations.push(`Topology uses avoided node ${getNode(nodes, c.nodeId)?.label ?? c.nodeId}`);
     }
+    if (c.type === 'maxCapacity' && c.value !== undefined && c.nodeId) {
+      const edgeCount = edges.filter((e) => e.from === c.nodeId || e.to === c.nodeId).length;
+      if (edgeCount > c.value) {
+        violations.push(`${getNode(nodes, c.nodeId)?.label ?? c.nodeId} has ${edgeCount} connections (max ${c.value})`);
+      }
+    }
+    if (c.type === 'noOrphans') {
+      const reachable = new Set<string>();
+      if (goal.source) {
+        const dist = dijkstra(adj, goal.source);
+        for (const id of dist.keys()) {
+          if (dist.get(id)!.dist < Infinity) reachable.add(id);
+        }
+      } else {
+        for (const n of nodes) {
+          if (edges.some((e) => e.from === n.id || e.to === n.id)) reachable.add(n.id);
+        }
+      }
+      for (const n of nodes) {
+        if (!reachable.has(n.id) && n.type !== 'source') {
+          violations.push(`${n.label} is orphaned (unreachable)`);
+        }
+      }
+    }
+    if (c.type === 'versionRequires' && c.requiresNode && c.requiresVersion) {
+      const reqNode = getNode(nodes, c.requiresNode);
+      if (reqNode && reqNode.health !== undefined && reqNode.health < 1.0) {
+        violations.push(`${reqNode.label} must be version ${c.requiresVersion} (upgrade required)`);
+      }
+    }
   }
 
   if (goal.type === 'noCycle' || goal.constraints?.some((c) => c.type === 'noCycle')) {
     if (hasCycle(nodes, edges)) violations.push('Cycle detected');
+  }
+
+  // Linearize: every node has at most 1 incoming edge, graph is a single path
+  if (goal.type === 'linearize') {
+    const inDegree = new Map<string, number>();
+    for (const n of nodes) inDegree.set(n.id, 0);
+    for (const e of edges) {
+      inDegree.set(e.to, (inDegree.get(e.to) ?? 0) + 1);
+    }
+    for (const [id, deg] of inDegree) {
+      if (deg > 1) {
+        violations.push(`${getNode(nodes, id)?.label ?? id} has ${deg} parents (max 1 for linear history)`);
+      }
+    }
+    if (hasCycle(nodes, edges)) violations.push('Cycle detected');
+    // Check single path: root (in-deg 0) reaches all others
+    const roots = nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0);
+    if (roots.length !== 1) {
+      violations.push(`Expected 1 root commit, found ${roots.length}`);
+    } else if (goal.source) {
+      const dist = dijkstra(adj, goal.source);
+      for (const n of nodes) {
+        if (n.id !== goal.source && dist.get(n.id)?.dist === Infinity) {
+          violations.push(`${n.label} is not reachable from root`);
+        }
+      }
+    }
   }
 
   // Budget is not enforced here — checked separately in app for soft feedback

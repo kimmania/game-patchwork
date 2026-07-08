@@ -20,6 +20,7 @@ class App {
   private usedNewEdges = 0;
   private usedDeletes = 0;
   private usedMoves = 0;
+  private usedRewires = 0;
 
   private get els() {
     return {
@@ -29,6 +30,7 @@ class App {
       undoBtn: document.getElementById('undo-btn')!,
       resetBtn: document.getElementById('reset-btn')!,
       connectBtn: document.getElementById('connect-btn')!,
+      rewireBtn: document.getElementById('rewire-btn')!,
       deleteBtn: document.getElementById('delete-btn')!,
       sourceBtn: document.getElementById('source-btn')!,
       verifyBtn: document.getElementById('verify-btn')!,
@@ -79,10 +81,11 @@ class App {
     // future: show detail panel
   }
 
-  private handleAction(action: 'connect' | 'delete' | 'move') {
+  private handleAction(action: 'connect' | 'delete' | 'move' | 'rewire') {
     if (action === 'connect') this.usedNewEdges++;
     if (action === 'delete') this.usedDeletes++;
     if (action === 'move') this.usedMoves++;
+    if (action === 'rewire') this.usedRewires++;
     this.updateGoalBanner();
   }
 
@@ -93,6 +96,7 @@ class App {
     this.els.undoBtn.addEventListener('click', () => this.undo());
     this.els.resetBtn.addEventListener('click', () => this.resetLevel());
     this.els.connectBtn.addEventListener('click', () => this.setTool('connect'));
+    this.els.rewireBtn.addEventListener('click', () => this.setTool('rewire'));
     this.els.deleteBtn.addEventListener('click', () => this.setTool('delete'));
     this.els.sourceBtn.addEventListener('click', () => this.openSource());
     this.els.verifyBtn.addEventListener('click', () => this.runVerify());
@@ -110,6 +114,7 @@ class App {
   private updateToolButtons() {
     const mode = this.renderer.getMode();
     this.els.connectBtn.classList.toggle('active', mode.tool === 'connect');
+    this.els.rewireBtn.classList.toggle('active', mode.tool === 'rewire');
     this.els.deleteBtn.classList.toggle('active', mode.tool === 'delete');
   }
 
@@ -137,7 +142,7 @@ class App {
     } else if (goal.type === 'surviveFailure') {
       parts.push('Ensure the system survives a node failure');
     } else if (goal.type === 'linearize') {
-      parts.push('Linearize the history into a single chain');
+      parts.push('Rewire edges into a single linear chain (no branches)');
     }
 
     // Constraints
@@ -165,6 +170,7 @@ class App {
       if (budget.newEdges !== undefined) pills.push(`${budget.newEdges - this.usedNewEdges} edges left`);
       if (budget.moves !== undefined) pills.push(`${budget.moves - this.usedMoves} moves left`);
       if (budget.deletes !== undefined) pills.push(`${budget.deletes - this.usedDeletes} deletes left`);
+      if (budget.rewires !== undefined) pills.push(`${budget.rewires - this.usedRewires} rewires left`);
     }
 
     const text = parts.join(' ');
@@ -183,6 +189,7 @@ class App {
       { type: 'gateway', abbr: 'GW', label: 'Gateway — entry point', color: '#fb923c' },
       { type: 'commit', abbr: 'CMT', label: 'Commit — git history node', color: '#94a3b8' },
       { type: 'package', abbr: 'PKG', label: 'Package — dependency', color: '#f472b6' },
+      { type: 'retry', abbr: 'RTY', label: 'Retry — halves downstream latency', color: '#a78bfa' },
     ];
 
     const rows = types.map((t) => `
@@ -243,6 +250,7 @@ class App {
       if (b.newEdges !== undefined && this.usedNewEdges > b.newEdges) overBudget.push(`${this.usedNewEdges} edges (budget ${b.newEdges})`);
       if (b.deletes !== undefined && this.usedDeletes > b.deletes) overBudget.push(`${this.usedDeletes} deletes (budget ${b.deletes})`);
       if (b.moves !== undefined && this.usedMoves > b.moves) overBudget.push(`${this.usedMoves} moves (budget ${b.moves})`);
+      if (b.rewires !== undefined && this.usedRewires > b.rewires) overBudget.push(`${this.usedRewires} rewires (budget ${b.rewires})`);
     }
     const withinBudget = overBudget.length === 0;
 
@@ -281,6 +289,7 @@ class App {
     this.usedNewEdges = 0;
     this.usedDeletes = 0;
     this.usedMoves = 0;
+    this.usedRewires = 0;
     saveGame(this.save);
     this.renderer.setTopology(this.level, this.topology);
     this.setTool('drag');
@@ -298,6 +307,7 @@ class App {
     this.usedNewEdges = 0;
     this.usedDeletes = 0;
     this.usedMoves = 0;
+    this.usedRewires = 0;
     saveGame(this.save);
     this.renderer.setTopology(this.level, this.topology);
     this.setTool('drag');
@@ -318,6 +328,7 @@ class App {
       <ul>
         <li><strong>Drag</strong> a node to reposition it. Just press and hold on any node, then drag.</li>
         <li><strong>Connect</strong>: First tap the <strong>Connect</strong> button to enter connect mode. Then tap the <strong>starting node</strong> — it will glow green and pulse to show it's armed. Next tap the <strong>destination node</strong> to create a directed edge (arrow) from start to destination. Edges are directional, so tap order matters!</li>
+        <li><strong>Rewire</strong>: Tap the <strong>Rewire</strong> button, then tap an existing <strong>edge</strong> (it turns purple). Tap a new <strong>destination node</strong> to redirect the edge. This is how you rebase git history — no commits deleted, just rewired.</li>
         <li><strong>Delete</strong>: First tap the <strong>Delete</strong> button to enter delete mode. Then tap any <strong>node</strong> or <strong>connection line</strong> to remove it. Edges turn red when you hover over them in delete mode.</li>
         <li><strong>Pinch / scroll</strong> to zoom and pan the canvas.</li>
       </ul>

@@ -1,6 +1,7 @@
 import type { EdgeDef, LevelData, NodeDef, Topology } from '../engine/types.ts';
+import { showToast } from './modal.ts';
 
-export type Tool = 'pan' | 'drag' | 'connect' | 'delete';
+export type Tool = 'pan' | 'drag' | 'connect' | 'delete' | 'rewire';
 export type InteractionMode = { tool: Tool; sourceId?: string | null };
 
 interface DragState {
@@ -26,6 +27,7 @@ const TYPE_COLORS: Record<string, string> = {
   gateway: '#fb923c',
   commit: '#94a3b8',
   package: '#f472b6',
+  retry: '#a78bfa',
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -38,6 +40,7 @@ const TYPE_LABELS: Record<string, string> = {
   gateway: 'GW',
   commit: 'CMT',
   package: 'PKG',
+  retry: 'RTY',
 };
 
 export class BoardRenderer {
@@ -54,10 +57,11 @@ export class BoardRenderer {
   private hoverEdgeId: string | null = null;
   private selectedNodeId: string | null = null;
   private cursorPos: { x: number; y: number } | null = null;
+  private rewireEdgeId: string | null = null;
   private onChange?: (topology: Topology) => void;
   private onSelect?: (node: NodeDef | null) => void;
   private onModeChange?: (mode: InteractionMode) => void;
-  private onAction?: (action: 'connect' | 'delete' | 'move') => void;
+  private onAction?: (action: 'connect' | 'delete' | 'move' | 'rewire') => void;
   private dpr: number;
 
   constructor(canvas: HTMLCanvasElement, level: LevelData, topology: Topology) {
@@ -109,10 +113,10 @@ export class BoardRenderer {
   private pulseRaf: number | null = null;
 
   private updatePulseLoop() {
-    const needsPulse = this.mode.tool === 'connect' && !!this.mode.sourceId;
+    const needsPulse = (this.mode.tool === 'connect' || this.mode.tool === 'rewire') && !!this.mode.sourceId;
     if (needsPulse && this.pulseRaf === null) {
       const tick = () => {
-        if (this.mode.tool === 'connect' && this.mode.sourceId) {
+        if ((this.mode.tool === 'connect' || this.mode.tool === 'rewire') && this.mode.sourceId) {
           this.render();
           this.pulseRaf = requestAnimationFrame(tick);
         } else {
@@ -151,7 +155,7 @@ export class BoardRenderer {
     this.onModeChange = cb;
   }
 
-  onActionFired(cb: (action: 'connect' | 'delete' | 'move') => void) {
+  onActionFired(cb: (action: 'connect' | 'delete' | 'move' | 'rewire') => void) {
     this.onAction = cb;
   }
 
@@ -164,6 +168,7 @@ export class BoardRenderer {
     this.drag = null;
     this.panState = null;
     this.cursorPos = null;
+    this.rewireEdgeId = null;
     this.history = [];
     this.mode = { tool: 'drag' };
     this.canvas.style.cursor = 'default';
@@ -264,8 +269,8 @@ export class BoardRenderer {
 
     this.canvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      // Don't capture pointer in connect mode — each tap is independent
-      if (this.mode.tool !== 'connect') {
+      // Don't capture pointer in connect or rewire mode — each tap is independent
+      if (this.mode.tool !== 'connect' && this.mode.tool !== 'rewire') {
         this.canvas.setPointerCapture(e.pointerId);
       }
       const pos = getPos(e);
@@ -316,6 +321,45 @@ export class BoardRenderer {
         return;
       }
 
+      if (this.mode.tool === 'rewire') {
+        if (node) {
+          if (this.mode.sourceId && this.mode.sourceId !== node.id) {
+            // Rewire: move the selected edge's target to the tapped node
+            const edgeToRewire = this.topology.edges.find((e) => e.id === this.rewireEdgeId);
+            if (edgeToRewire) {
+              this.saveHistory();
+              this.onAction?.('rewire');
+              edgeToRewire.to = node.id;
+              this.emitChange();
+            }
+            this.mode.sourceId = null;
+            this.rewireEdgeId = null;
+            this.selectedNodeId = null;
+            this.updatePulseLoop();
+            this.render();
+          } else {
+            // No edge selected yet — can't rewire by tapping a node
+            showToast('Tap an edge first, then tap the new target node');
+          }
+        } else {
+          // Tap an edge to select it for rewiring
+          const edge = this.findEdgeAt(world.x, world.y);
+          if (edge) {
+            this.rewireEdgeId = edge.id;
+            this.mode.sourceId = edge.from;
+            this.selectedNodeId = null;
+            this.updatePulseLoop();
+            this.render();
+          } else if (this.mode.sourceId) {
+            this.mode.sourceId = null;
+            this.rewireEdgeId = null;
+            this.updatePulseLoop();
+            this.render();
+          }
+        }
+        return;
+      }
+
       if (node) {
         this.saveHistory();
         this.drag = { nodeId: node.id, offsetX: world.x - node.x, offsetY: world.y - node.y };
@@ -345,18 +389,20 @@ export class BoardRenderer {
         this.pan.x = this.panState.panStartX + (pos.x - this.panState.startX);
         this.pan.y = this.panState.panStartY + (pos.y - this.panState.startY);
         this.render();
-      } else if (this.mode.tool === 'connect' && this.mode.sourceId) {
+      } else if ((this.mode.tool === 'connect' || this.mode.tool === 'rewire') && this.mode.sourceId) {
         // Track cursor for preview line
         this.cursorPos = world;
         this.render();
       } else {
         const hover = this.findNodeAt(world.x, world.y);
-        const hoverEdge = (!hover && this.mode.tool === 'delete') ? this.findEdgeAt(world.x, world.y) : null;
+        const hoverEdge = (!hover && (this.mode.tool === 'delete' || this.mode.tool === 'rewire')) ? this.findEdgeAt(world.x, world.y) : null;
         const hoverChanged = hover?.id !== this.hoverNodeId || (hoverEdge?.id ?? null) !== this.hoverEdgeId;
         if (hoverChanged) {
           this.hoverNodeId = hover?.id ?? null;
           this.hoverEdgeId = hoverEdge?.id ?? null;
           if (this.mode.tool === 'delete') {
+            this.canvas.style.cursor = (hover || hoverEdge) ? 'pointer' : 'default';
+          } else if (this.mode.tool === 'rewire') {
             this.canvas.style.cursor = (hover || hoverEdge) ? 'pointer' : 'default';
           } else {
             this.canvas.style.cursor = this.mode.tool === 'drag' && hover ? 'move' : this.mode.tool === 'pan' ? 'grab' : 'default';
@@ -436,7 +482,8 @@ export class BoardRenderer {
   }
 
   private drawPreviewLine(ctx: CanvasRenderingContext2D) {
-    if (this.mode.tool !== 'connect' || !this.mode.sourceId || !this.cursorPos) return;
+    if (!this.mode.sourceId || !this.cursorPos) return;
+    if (this.mode.tool !== 'connect' && this.mode.tool !== 'rewire') return;
     const source = this.topology.nodes.find((n) => n.id === this.mode.sourceId);
     if (!source) return;
     const r = this.nodeRadius();
@@ -447,7 +494,7 @@ export class BoardRenderer {
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(this.cursorPos.x, this.cursorPos.y);
-    ctx.strokeStyle = 'rgba(74, 222, 128, 0.5)';
+    ctx.strokeStyle = this.mode.tool === 'rewire' ? 'rgba(167, 139, 250, 0.5)' : 'rgba(74, 222, 128, 0.5)';
     ctx.lineWidth = 2;
     ctx.setLineDash([6, 4]);
     ctx.stroke();
@@ -466,16 +513,18 @@ export class BoardRenderer {
       const x2 = to.x - Math.cos(angle) * r;
       const y2 = to.y - Math.sin(angle) * r;
 
-      const isHovered = this.mode.tool === 'delete' && this.hoverEdgeId === e.id;
-      const edgeColor = isHovered ? '#f87171' : '#94a3b8';
-      const edgeWidth = isHovered ? 5 : 3;
+      const isHovered = (this.mode.tool === 'delete' || this.mode.tool === 'rewire') && this.hoverEdgeId === e.id;
+      const isRewireSelected = this.mode.tool === 'rewire' && this.rewireEdgeId === e.id;
+      const edgeColor = isHovered ? '#f87171' : isRewireSelected ? '#a78bfa' : '#94a3b8';
+      const edgeWidth = isHovered || isRewireSelected ? 5 : 3;
 
-      // Glow on hovered edge
-      if (isHovered) {
+      // Glow on hovered/selected edge
+      if (isHovered || isRewireSelected) {
+        const glowColor = isHovered ? 'rgba(248, 113, 113, 0.25)' : 'rgba(167, 139, 250, 0.25)';
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
-        ctx.strokeStyle = 'rgba(248, 113, 113, 0.25)';
+        ctx.strokeStyle = glowColor;
         ctx.lineWidth = 12;
         ctx.stroke();
       }
@@ -522,7 +571,7 @@ export class BoardRenderer {
 
     for (const n of this.topology.nodes) {
       const isSelected = n.id === this.selectedNodeId;
-      const isArmedSource = this.mode.tool === 'connect' && this.mode.sourceId === n.id;
+      const isArmedSource = (this.mode.tool === 'connect' || this.mode.tool === 'rewire') && this.mode.sourceId === n.id;
       const isHover = n.id === this.hoverNodeId;
 
       // Pulsing glow for armed source node in connect mode

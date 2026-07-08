@@ -1,4 +1,4 @@
-export type NodeType = 'source' | 'target' | 'router' | 'service' | 'database' | 'cache' | 'gateway' | 'commit' | 'package';
+export type NodeType = 'source' | 'target' | 'router' | 'service' | 'database' | 'cache' | 'gateway' | 'commit' | 'package' | 'retry';
 
 export interface NodeDef {
   id: string;
@@ -19,12 +19,14 @@ export interface EdgeDef {
   bidirectional?: boolean;
 }
 
-export type ConstraintType = 'maxLatency' | 'avoidNode' | 'noCycle' | 'maxHops' | 'minRedundancy';
+export type ConstraintType = 'maxLatency' | 'avoidNode' | 'noCycle' | 'maxHops' | 'minRedundancy' | 'maxCapacity' | 'noOrphans' | 'versionRequires';
 
 export interface Constraint {
   type: ConstraintType;
   value?: number;
   nodeId?: string;
+  requiresNode?: string;
+  requiresVersion?: string;
 }
 
 export interface Budget {
@@ -32,6 +34,7 @@ export interface Budget {
   newNodes?: number;
   deletes?: number;
   moves?: number;
+  rewires?: number;
 }
 
 export interface Goal {

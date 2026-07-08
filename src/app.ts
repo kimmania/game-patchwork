@@ -314,11 +314,11 @@ class App {
     const hide = showModal('How to Play', `
       <p>Patchwork puzzles are real-world topologies: networks, schemas, commits, and dependencies.</p>
       <p>The <strong>goal banner</strong> at the top of the board tells you what to achieve — route traffic, break cycles, or repair connections. Read it first!</p>
-      <p>Manipulate the graph to satisfy the goal, then tap <strong>Verify</strong>.</p>
+      <p>Manipulate the graph to satisfy the goal, then tap <strong>Verify</strong> (blue button in the tool bar).</p>
       <ul>
-        <li><strong>Drag</strong> a node to reposition it.</li>
-        <li><strong>Connect</strong> mode: tap a source node (it glows), then tap a target to add an edge.</li>
-        <li><strong>Delete</strong> mode: tap a node or edge to remove it.</li>
+        <li><strong>Drag</strong> a node to reposition it. Just press and hold on any node, then drag.</li>
+        <li><strong>Connect</strong>: First tap the <strong>Connect</strong> button to enter connect mode. Then tap the <strong>starting node</strong> — it will glow green and pulse to show it's armed. Next tap the <strong>destination node</strong> to create a directed edge (arrow) from start to destination. Edges are directional, so tap order matters!</li>
+        <li><strong>Delete</strong>: First tap the <strong>Delete</strong> button to enter delete mode. Then tap any <strong>node</strong> or <strong>connection line</strong> to remove it. Edges turn red when you hover over them in delete mode.</li>
         <li><strong>Pinch / scroll</strong> to zoom and pan the canvas.</li>
       </ul>
       <p>Not sure what a shape means? Tap the <strong>◮ Legend</strong> button in the top bar to see node types and health indicators.</p>
